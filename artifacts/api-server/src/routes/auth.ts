@@ -203,6 +203,96 @@ router.get("/logout", async (req: Request, res: Response) => {
   res.redirect(endSessionUrl.href);
 });
 
+router.get("/mobile-login", async (req: Request, res: Response) => {
+  const config = await getOidcConfig();
+  const { redirect_uri } = req.query;
+
+  const callbackUrl = redirect_uri as string || `${getOrigin(req)}/api/callback-mobile`;
+
+  const state = oidc.randomState();
+  const nonce = oidc.randomNonce();
+  const codeVerifier = oidc.randomPKCECodeVerifier();
+  const codeChallenge = await oidc.calculatePKCECodeChallenge(codeVerifier);
+
+  const redirectTo = oidc.buildAuthorizationUrl(config, {
+    redirect_uri: callbackUrl,
+    scope: "openid email profile",
+    code_challenge: codeChallenge,
+    code_challenge_method: "S256",
+    prompt: "login consent",
+    state,
+    nonce,
+  });
+
+  setOidcCookie(res, "mobile_code_verifier", codeVerifier);
+  setOidcCookie(res, "mobile_nonce", nonce);
+  setOidcCookie(res, "mobile_state", state);
+  setOidcCookie(res, "mobile_redirect_uri", callbackUrl);
+
+  res.redirect(redirectTo.href);
+});
+
+router.get("/callback-mobile", async (req: Request, res: Response) => {
+  const config = await getOidcConfig();
+
+  const codeVerifier = req.cookies?.mobile_code_verifier;
+  const nonce = req.cookies?.mobile_nonce;
+  const expectedState = req.cookies?.mobile_state;
+  const redirectUri = req.cookies?.mobile_redirect_uri;
+
+  if (!codeVerifier || !expectedState || !redirectUri) {
+    res.redirect("mobile-app://auth?error=missing_cookies");
+    return;
+  }
+
+  const callbackUrl = new URL(
+    `${redirectUri}?${new URL(req.url, `http://${req.headers.host}`).searchParams}`,
+  );
+
+  let tokens: oidc.TokenEndpointResponse & oidc.TokenEndpointResponseHelpers;
+  try {
+    tokens = await oidc.authorizationCodeGrant(config, callbackUrl, {
+      pkceCodeVerifier: codeVerifier,
+      expectedNonce: nonce,
+      expectedState,
+      idTokenExpected: true,
+    });
+  } catch (err) {
+    res.redirect("mobile-app://auth?error=token_exchange_failed");
+    return;
+  }
+
+  res.clearCookie("mobile_code_verifier", { path: "/" });
+  res.clearCookie("mobile_nonce", { path: "/" });
+  res.clearCookie("mobile_state", { path: "/" });
+  res.clearCookie("mobile_redirect_uri", { path: "/" });
+
+  const claims = tokens.claims();
+  if (!claims) {
+    res.redirect("mobile-app://auth?error=no_claims");
+    return;
+  }
+
+  const dbUser = await upsertUser(claims as unknown as Record<string, unknown>);
+
+  const now = Math.floor(Date.now() / 1000);
+  const sessionData: SessionData = {
+    user: {
+      id: dbUser.id,
+      email: dbUser.email,
+      firstName: dbUser.firstName,
+      lastName: dbUser.lastName,
+      profileImageUrl: dbUser.profileImageUrl,
+    },
+    access_token: tokens.access_token,
+    refresh_token: tokens.refresh_token,
+    expires_at: tokens.expiresIn() ? now + tokens.expiresIn()! : claims.exp,
+  };
+
+  const sid = await createSession(sessionData);
+  res.redirect(`mobile-app://auth?token=${sid}`);
+});
+
 router.post(
   "/mobile-auth/token-exchange",
   async (req: Request, res: Response) => {

@@ -1,59 +1,85 @@
 import { BlurView } from "expo-blur";
 import { isLiquidGlassAvailable } from "expo-glass-effect";
 import { Tabs } from "expo-router";
-import { Icon, Label, NativeTabs } from "expo-router/unstable-native-tabs";
+import { NativeTabs } from "expo-router/unstable-native-tabs";
 import { SymbolView } from "expo-symbols";
-import { Feather } from "@expo/vector-icons";
+import { Feather, Ionicons } from "@expo/vector-icons";
 import React from "react";
-import { Platform, StyleSheet, View, useColorScheme } from "react-native";
+import { Platform, StyleSheet, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import Colors from "@/constants/colors";
+import { Colors } from "@/constants/colors";
 
-//IMPORTANT: iOS 26 Exists, feel free to use NativeTabs for native tabs with liquid glass support.
+const C = Colors.dark;
+
 function NativeTabLayout() {
   return (
     <NativeTabs>
-      <NativeTabs.Trigger name="index">
-        <Icon sf={{ default: "house", selected: "house.fill" }} />
-        <Label>Home</Label>
-      </NativeTabs.Trigger>
+      <NativeTabs.Trigger
+        name="index"
+        options={{
+          title: "Home",
+          icon: { sf: "house" },
+          selectedIcon: { sf: "house.fill" },
+        }}
+      />
+      <NativeTabs.Trigger
+        name="workspace"
+        options={{
+          title: "Build",
+          icon: { sf: "sparkles" },
+        }}
+      />
+      <NativeTabs.Trigger
+        name="community"
+        options={{
+          title: "Community",
+          icon: { sf: "square.grid.2x2" },
+          selectedIcon: { sf: "square.grid.2x2.fill" },
+        }}
+      />
+      <NativeTabs.Trigger
+        name="profile"
+        options={{
+          title: "Profile",
+          icon: { sf: "person" },
+          selectedIcon: { sf: "person.fill" },
+        }}
+      />
     </NativeTabs>
   );
 }
 
 function ClassicTabLayout() {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === "dark";
   const isIOS = Platform.OS === "ios";
   const isWeb = Platform.OS === "web";
+  const insets = useSafeAreaInsets();
 
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors.light.tint,
-        tabBarInactiveTintColor: Colors.light.tabIconDefault,
-        headerShown: true,
+        headerShown: false,
+        tabBarActiveTintColor: C.primary,
+        tabBarInactiveTintColor: C.tabIconDefault,
         tabBarStyle: {
           position: "absolute",
-          backgroundColor: isIOS ? "transparent" : isDark ? "#000" : "#fff",
-          borderTopWidth: isWeb ? 1 : 0,
-          borderTopColor: isDark ? "#333" : "#ccc",
+          backgroundColor: isIOS ? "transparent" : C.tabBar,
+          borderTopWidth: 1,
+          borderTopColor: C.surfaceBorder,
           elevation: 0,
+          paddingBottom: isWeb ? 0 : insets.bottom,
           ...(isWeb ? { height: 84 } : {}),
         },
         tabBarBackground: () =>
           isIOS ? (
             <BlurView
-              intensity={100}
-              tint={isDark ? "dark" : "light"}
+              intensity={80}
+              tint="dark"
               style={StyleSheet.absoluteFill}
             />
           ) : isWeb ? (
             <View
-              style={[
-                StyleSheet.absoluteFill,
-                { backgroundColor: isDark ? "#000" : "#fff" },
-              ]}
+              style={[StyleSheet.absoluteFill, { backgroundColor: C.tabBar }]}
             />
           ) : null,
       }}
@@ -70,12 +96,48 @@ function ClassicTabLayout() {
             ),
         }}
       />
+      <Tabs.Screen
+        name="workspace"
+        options={{
+          title: "Build",
+          tabBarIcon: ({ color }) =>
+            isIOS ? (
+              <SymbolView name="sparkles" tintColor={color} size={24} />
+            ) : (
+              <Ionicons name="sparkles-outline" size={22} color={color} />
+            ),
+        }}
+      />
+      <Tabs.Screen
+        name="community"
+        options={{
+          title: "Community",
+          tabBarIcon: ({ color }) =>
+            isIOS ? (
+              <SymbolView name="square.grid.2x2" tintColor={color} size={24} />
+            ) : (
+              <Feather name="grid" size={22} color={color} />
+            ),
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: "Profile",
+          tabBarIcon: ({ color }) =>
+            isIOS ? (
+              <SymbolView name="person" tintColor={color} size={24} />
+            ) : (
+              <Feather name="user" size={22} color={color} />
+            ),
+        }}
+      />
     </Tabs>
   );
 }
 
 export default function TabLayout() {
-  if (isLiquidGlassAvailable()) {
+  if (Platform.OS !== "web" && isLiquidGlassAvailable()) {
     return <NativeTabLayout />;
   }
   return <ClassicTabLayout />;

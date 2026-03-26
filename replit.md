@@ -91,6 +91,27 @@ Generated Zod schemas from the OpenAPI spec (e.g. `HealthCheckResponse`). Used b
 
 Generated React Query hooks and fetch client from the OpenAPI spec (e.g. `useHealthCheck`, `healthCheck`).
 
+### `artifacts/web-app` (`@workspace/web-app`)
+
+React + Vite web app. Dark theme with `#050810` background, neon cyan `#00E5FF` primary, purple `#A855F7` secondary. Inter font.
+
+- Auth: Replit OIDC/PKCE via `/api/login`, `/api/callback`, `/api/logout`
+- Routes: `/` (Landing), `/signin` + `/signup` (map to `SignIn.tsx`), `/workspace` (agent chat with SSE), `/community` (gallery), `*` (404)
+- Workspace: SSE streaming agent chat via `EventSource` to `/api/agent/run`
+
+### `artifacts/mobile-app` (`@workspace/mobile-app`)
+
+React Native/Expo mobile app. Expo Router v6 with file-based routing.
+
+- Auth: `WebBrowser.openAuthSessionAsync` → `/api/mobile-login` → OIDC → `/api/callback-mobile` → `mobile-app://auth?token=...`
+- Token persisted in AsyncStorage under `realityos_auth_token`
+- `setAuthTokenGetter` wires token to all api-client-react calls
+- `setBaseUrl` called outside components in `_layout.tsx` 
+- Screens: Home (greeting, projects, community strip), Build/Workspace (SSE streaming chat via `expo/fetch`), Community (filterable grid), Profile (stats, menu, sign in/out)
+- Tab layout: `isLiquidGlassAvailable()` check → NativeTabs on iOS 26+, ClassicTabs with BlurView on iOS, solid View on web
+- Mobile streaming: inverted FlatList, KeyboardAvoidingView from react-native-keyboard-controller
+- Never use `uuid` package in RN — use `Date.now() + Math.random()`
+
 ### `scripts` (`@workspace/scripts`)
 
 Utility scripts package. Each script is a `.ts` file in `src/` with a corresponding npm script in `package.json`. Run scripts via `pnpm --filter @workspace/scripts run <script>`. Scripts can import any workspace package (e.g., `@workspace/db`) by adding it as a dependency in `scripts/package.json`.

@@ -1,22 +1,24 @@
 {
   "expo": {
-    "name": "RealityOS Mobile",
+    "name": "RealityOS",
     "slug": "mobile-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "mobile-app",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "splash": {
       "image": "./assets/images/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#050810"
     },
     "ios": {
       "supportsTablet": false
     },
-    "android": {},
+    "android": {
+      "backgroundColor": "#050810"
+    },
     "web": {
       "favicon": "./assets/images/icon.png"
     },
