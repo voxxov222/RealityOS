@@ -25,7 +25,7 @@ export default function Workspace() {
   useEffect(() => {
     if (!authLoading && !auth?.user) {
       const returnTo = encodeURIComponent(window.location.pathname + window.location.search);
-      window.location.href = `/api/login?returnTo=${returnTo}`;
+      window.location.href = `/signin?returnTo=${returnTo}`;
     }
   }, [auth, authLoading]);
 

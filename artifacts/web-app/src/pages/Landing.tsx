@@ -49,9 +49,11 @@ export default function Landing() {
             <Button 
               size="lg" 
               className="h-14 px-8 rounded-full bg-primary text-black font-bold text-lg shadow-[0_0_30px_hsl(var(--primary)_/_0.4)] hover:shadow-[0_0_40px_hsl(var(--primary)_/_0.6)] hover:-translate-y-1 transition-all duration-300"
-              onClick={() => window.location.href = "/api/login"}
+              asChild
             >
-              Start Building Free <ArrowRight className="ml-2 w-5 h-5" />
+              <Link href="/signin?returnTo=/workspace">
+                Start Building Free <ArrowRight className="ml-2 w-5 h-5" />
+              </Link>
             </Button>
             <Button 
               size="lg" 

@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Landing from "@/pages/Landing";
+import SignIn from "@/pages/SignIn";
 import Workspace from "@/pages/Workspace";
 import Community from "@/pages/Community";
 import NotFound from "@/pages/not-found";
@@ -20,6 +21,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Landing} />
+      <Route path="/signin" component={SignIn} />
       <Route path="/workspace" component={Workspace} />
       <Route path="/workspace/:projectId" component={Workspace} />
       <Route path="/community" component={Community} />

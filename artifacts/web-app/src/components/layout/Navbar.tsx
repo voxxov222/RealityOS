@@ -91,7 +91,10 @@ export function Navbar({ mobileMenuSlot }: NavbarProps) {
           </DropdownMenu>
         ) : (
           <Button
-            onClick={() => { window.location.href = "/api/login"; }}
+            onClick={() => {
+              const returnTo = encodeURIComponent(window.location.pathname + window.location.search);
+              window.location.href = `/signin?returnTo=${returnTo}`;
+            }}
             className="rounded-full bg-white text-black hover:bg-gray-200 font-semibold px-6 shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:shadow-[0_0_25px_rgba(255,255,255,0.5)] transition-all"
           >
             Sign In
