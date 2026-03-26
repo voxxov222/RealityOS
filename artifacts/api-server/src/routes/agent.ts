@@ -1,7 +1,7 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { openai } from "@workspace/integrations-openai-ai-server";
-import { db, agentSessionsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { db, agentSessionsTable, projectsTable } from "@workspace/db";
+import { eq, and } from "drizzle-orm";
 import { z } from "zod";
 
 const router: IRouter = Router();
@@ -37,6 +37,17 @@ router.post("/agent/run", async (req: Request, res: Response) => {
   }
 
   const { prompt, projectId, context } = parsed.data;
+
+  if (projectId != null) {
+    const [project] = await db
+      .select()
+      .from(projectsTable)
+      .where(and(eq(projectsTable.id, projectId), eq(projectsTable.userId, req.user.id)));
+    if (!project) {
+      res.status(404).json({ error: "Project not found" });
+      return;
+    }
+  }
 
   const [agentSession] = await db
     .insert(agentSessionsTable)

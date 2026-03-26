@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import { db, communityPostsTable } from "@workspace/db";
-import { eq, desc, sql } from "drizzle-orm";
+import { db, communityPostsTable, projectsTable } from "@workspace/db";
+import { eq, desc, sql, and } from "drizzle-orm";
 import { z } from "zod";
 
 const router: IRouter = Router();
@@ -43,6 +43,18 @@ router.post("/community", async (req: Request, res: Response) => {
     return;
   }
   const user = req.user;
+
+  if (parsed.data.projectId != null) {
+    const [project] = await db
+      .select()
+      .from(projectsTable)
+      .where(and(eq(projectsTable.id, parsed.data.projectId), eq(projectsTable.userId, user.id)));
+    if (!project) {
+      res.status(404).json({ error: "Project not found" });
+      return;
+    }
+  }
+
   const authorName =
     [user.firstName, user.lastName].filter(Boolean).join(" ") || user.email || "Anonymous";
 
