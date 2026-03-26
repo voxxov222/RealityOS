@@ -1,0 +1,18 @@
+packages:
+  "framer-motion": "Animations and beautiful page transitions"
+  "react-markdown": "Rendering markdown output from the agent"
+  "date-fns": "Date formatting for projects and posts"
+  "clsx": "Classname utility"
+  "tailwind-merge": "Classname merging"
+
+images:
+  - path: "artifacts/web-app/public/images/hero-bg.png"
+    description: "Abstract 3D glassmorphism shapes floating in deep dark space with glowing neon purple and cyan lighting, highly detailed futuristic studio vibe, 8k resolution"
+    aspect_ratio: "16:9"
+  - path: "artifacts/web-app/public/images/logo.png"
+    description: "Minimalist glowing neon geometric logo mark representing a creative studio or portal, deep black background with bright cyan and purple accents"
+    aspect_ratio: "1:1"
+
+notes:
+  - "Using custom SSE hook for /api/agent/run since it's a streaming endpoint."
+  - "App is forced to dark mode as per design requirements."
