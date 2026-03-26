@@ -2,7 +2,7 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { generateImageBuffer } from "@workspace/integrations-openai-ai-server/image";
 import { db, conversations, messages } from "@workspace/db";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 import { z } from "zod";
 
 const router: IRouter = Router();
@@ -15,14 +15,23 @@ const generateImageSchema = z.object({
 });
 
 router.get("/openai/conversations", async (req: Request, res: Response) => {
+  if (!req.isAuthenticated()) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
   const all = await db
     .select()
     .from(conversations)
+    .where(eq(conversations.userId, req.user.id))
     .orderBy(desc(conversations.createdAt));
   res.json(all);
 });
 
 router.post("/openai/conversations", async (req: Request, res: Response) => {
+  if (!req.isAuthenticated()) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
   const parsed = createConversationSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Invalid request body" });
@@ -30,17 +39,21 @@ router.post("/openai/conversations", async (req: Request, res: Response) => {
   }
   const [conv] = await db
     .insert(conversations)
-    .values({ title: parsed.data.title })
+    .values({ title: parsed.data.title, userId: req.user.id })
     .returning();
   res.status(201).json(conv);
 });
 
 router.get("/openai/conversations/:id", async (req: Request, res: Response) => {
+  if (!req.isAuthenticated()) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
   const id = Number(req.params.id);
   const [conv] = await db
     .select()
     .from(conversations)
-    .where(eq(conversations.id, id));
+    .where(and(eq(conversations.id, id), eq(conversations.userId, req.user.id)));
   if (!conv) {
     res.status(404).json({ error: "Conversation not found" });
     return;
@@ -54,11 +67,15 @@ router.get("/openai/conversations/:id", async (req: Request, res: Response) => {
 });
 
 router.delete("/openai/conversations/:id", async (req: Request, res: Response) => {
+  if (!req.isAuthenticated()) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
   const id = Number(req.params.id);
   const [conv] = await db
     .select()
     .from(conversations)
-    .where(eq(conversations.id, id));
+    .where(and(eq(conversations.id, id), eq(conversations.userId, req.user.id)));
   if (!conv) {
     res.status(404).json({ error: "Conversation not found" });
     return;
@@ -68,7 +85,19 @@ router.delete("/openai/conversations/:id", async (req: Request, res: Response) =
 });
 
 router.get("/openai/conversations/:id/messages", async (req: Request, res: Response) => {
+  if (!req.isAuthenticated()) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
   const id = Number(req.params.id);
+  const [conv] = await db
+    .select()
+    .from(conversations)
+    .where(and(eq(conversations.id, id), eq(conversations.userId, req.user.id)));
+  if (!conv) {
+    res.status(404).json({ error: "Conversation not found" });
+    return;
+  }
   const msgs = await db
     .select()
     .from(messages)
@@ -78,6 +107,10 @@ router.get("/openai/conversations/:id/messages", async (req: Request, res: Respo
 });
 
 router.post("/openai/conversations/:id/messages", async (req: Request, res: Response) => {
+  if (!req.isAuthenticated()) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
   const id = Number(req.params.id);
   const parsed = sendMessageSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -88,7 +121,7 @@ router.post("/openai/conversations/:id/messages", async (req: Request, res: Resp
   const [conv] = await db
     .select()
     .from(conversations)
-    .where(eq(conversations.id, id));
+    .where(and(eq(conversations.id, id), eq(conversations.userId, req.user.id)));
   if (!conv) {
     res.status(404).json({ error: "Conversation not found" });
     return;
@@ -147,6 +180,10 @@ router.post("/openai/conversations/:id/messages", async (req: Request, res: Resp
 });
 
 router.post("/openai/generate-image", async (req: Request, res: Response) => {
+  if (!req.isAuthenticated()) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
   const parsed = generateImageSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Invalid request body" });
