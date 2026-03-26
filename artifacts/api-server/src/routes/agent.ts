@@ -1,6 +1,7 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { db, agentSessionsTable, projectsTable } from "@workspace/db";
+import { isOpenAIAvailable } from "@workspace/integrations-openai-ai-server";
 import { eq, and } from "drizzle-orm";
 import { z } from "zod";
 
@@ -78,6 +79,20 @@ router.post("/agent/run", async (req: Request, res: Response) => {
   }
 
   let fullContent = "";
+
+  if (!isOpenAIAvailable()) {
+    const stub = `[RealityOS is not yet connected to an AI provider. Your request has been recorded: "${prompt}"]`;
+    res.write(`data: ${JSON.stringify({ content: stub })}\n\n`);
+
+    await db
+      .update(agentSessionsTable)
+      .set({ status: "completed", result: { content: stub }, updatedAt: new Date() })
+      .where(eq(agentSessionsTable.id, agentSession.id));
+
+    res.write(`data: ${JSON.stringify({ done: true, sessionId: agentSession.id })}\n\n`);
+    res.end();
+    return;
+  }
 
   try {
     const stream = await openai.chat.completions.create({
