@@ -18,14 +18,25 @@ import Animated, { FadeInDown } from "react-native-reanimated";
 import { useAuth } from "@/context/auth";
 import { Colors } from "@/constants/colors";
 import { useListProjects } from "@workspace/api-client-react";
+import type { Project } from "@workspace/api-client-react";
 
 const C = Colors.dark;
 
-function StatCard({ label, value, icon, color }: { label: string; value: string | number; icon: string; color: string }) {
+function StatCard({
+  label,
+  value,
+  icon,
+  color,
+}: {
+  label: string;
+  value: string | number;
+  icon: keyof typeof Feather.glyphMap;
+  color: string;
+}) {
   return (
     <View style={[styles.statCard, { borderColor: color + "33" }]}>
       <View style={[styles.statIconBg, { backgroundColor: color + "22" }]}>
-        <Feather name={icon as any} size={18} color={color} />
+        <Feather name={icon} size={18} color={color} />
       </View>
       <Text style={styles.statValue}>{value}</Text>
       <Text style={styles.statLabel}>{label}</Text>
@@ -39,7 +50,7 @@ function MenuRow({
   onPress,
   danger = false,
 }: {
-  icon: string;
+  icon: keyof typeof Feather.glyphMap;
   label: string;
   onPress: () => void;
   danger?: boolean;
@@ -53,7 +64,7 @@ function MenuRow({
       style={({ pressed }) => [styles.menuRow, pressed && styles.menuRowPressed]}
     >
       <View style={[styles.menuIcon, { backgroundColor: danger ? C.error + "22" : C.surfaceElevated }]}>
-        <Feather name={icon as any} size={18} color={danger ? C.error : C.textSecondary} />
+        <Feather name={icon} size={18} color={danger ? C.error : C.textSecondary} />
       </View>
       <Text style={[styles.menuLabel, danger && { color: C.error }]}>{label}</Text>
       {!danger && <Feather name="chevron-right" size={18} color={C.textMuted} />}
@@ -69,7 +80,9 @@ export default function ProfileScreen() {
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const bottomPad = Platform.OS === "web" ? 34 : 0;
 
-  const publishedCount = projects?.filter((p) => p.status === "published").length ?? 0;
+  const publishedCount = (projects ?? []).filter(
+    (p: Project) => p.status === "published",
+  ).length;
   const totalCount = projects?.length ?? 0;
 
   if (isLoading) {
@@ -142,9 +155,9 @@ export default function ProfileScreen() {
               </View>
             )}
             <Text style={styles.userName}>{displayName}</Text>
-            {user.email && (
+            {user.email ? (
               <Text style={styles.userEmail}>{user.email}</Text>
-            )}
+            ) : null}
           </LinearGradient>
         </Animated.View>
 
@@ -159,20 +172,20 @@ export default function ProfileScreen() {
         <Animated.View entering={FadeInDown.delay(200).springify()} style={styles.menuSection}>
           <Text style={styles.menuSectionTitle}>Account</Text>
           <View style={styles.menuCard}>
-            <MenuRow icon="user" label="Edit Profile" onPress={() => {}} />
+            <MenuRow icon="user" label="Edit Profile" onPress={() => { /* TODO */ }} />
             <View style={styles.menuDivider} />
-            <MenuRow icon="bell" label="Notifications" onPress={() => {}} />
+            <MenuRow icon="bell" label="Notifications" onPress={() => { /* TODO */ }} />
             <View style={styles.menuDivider} />
-            <MenuRow icon="lock" label="Privacy" onPress={() => {}} />
+            <MenuRow icon="lock" label="Privacy" onPress={() => { /* TODO */ }} />
           </View>
         </Animated.View>
 
         <Animated.View entering={FadeInDown.delay(260).springify()} style={styles.menuSection}>
           <Text style={styles.menuSectionTitle}>Support</Text>
           <View style={styles.menuCard}>
-            <MenuRow icon="help-circle" label="Help Center" onPress={() => {}} />
+            <MenuRow icon="help-circle" label="Help Center" onPress={() => { /* TODO */ }} />
             <View style={styles.menuDivider} />
-            <MenuRow icon="star" label="Rate RealityOS" onPress={() => {}} />
+            <MenuRow icon="star" label="Rate RealityOS" onPress={() => { /* TODO */ }} />
           </View>
         </Animated.View>
 

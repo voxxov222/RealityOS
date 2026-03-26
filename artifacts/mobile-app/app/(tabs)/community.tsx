@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
+import { router } from "expo-router";
 import React, { useState } from "react";
 import {
   FlatList,
@@ -23,6 +24,7 @@ import Animated, {
 
 import { Colors } from "@/constants/colors";
 import { useListCommunityPosts } from "@workspace/api-client-react";
+import type { CommunityPost } from "@workspace/api-client-react";
 
 const C = Colors.dark;
 
@@ -35,16 +37,21 @@ const TAG_COLORS: Record<string, string> = {
   "3D": C.secondary,
 };
 
-function PostCard({ post, index }: { post: any; index: number }) {
+function PostCard({ post, index }: { post: CommunityPost; index: number }) {
   const scale = useSharedValue(1);
   const anim = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+
+  const handlePress = () => {
+    Haptics.selectionAsync();
+    router.push({ pathname: "/community/[id]", params: { id: String(post.id) } });
+  };
 
   return (
     <Animated.View entering={FadeInDown.delay(index * 40).springify()} style={[anim, styles.cardWrapper]}>
       <Pressable
         onPressIn={() => { scale.value = withSpring(0.97); }}
         onPressOut={() => { scale.value = withSpring(1); }}
-        onPress={() => Haptics.selectionAsync()}
+        onPress={handlePress}
         style={styles.card}
       >
         {/* Thumbnail */}
@@ -60,9 +67,9 @@ function PostCard({ post, index }: { post: any; index: number }) {
         )}
 
         {/* Tags */}
-        {post.tags?.length > 0 && (
+        {post.tags.length > 0 && (
           <View style={styles.tagRow}>
-            {post.tags.slice(0, 2).map((t: string) => (
+            {post.tags.slice(0, 2).map((t) => (
               <View
                 key={t}
                 style={[
@@ -119,9 +126,7 @@ export default function CommunityScreen() {
     data: posts,
     isLoading,
     refetch,
-  } = useListCommunityPosts({
-    params: { query: { tag, limit: 50 } },
-  });
+  } = useListCommunityPosts({ params: { query: { tag, limit: 50 } } });
 
   return (
     <View style={[styles.container, { paddingBottom: bottomPad }]}>

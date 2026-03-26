@@ -29,6 +29,7 @@ import {
   useListProjects,
   useListCommunityPosts,
 } from "@workspace/api-client-react";
+import type { Project, CommunityPost } from "@workspace/api-client-react";
 
 const C = Colors.dark;
 
@@ -40,7 +41,7 @@ const PROJECT_TYPE_COLORS: Record<string, string> = {
   other: C.textSecondary,
 };
 
-const PROJECT_TYPE_ICONS: Record<string, string> = {
+const PROJECT_TYPE_ICONS: Record<string, keyof typeof Feather.glyphMap> = {
   app: "layers",
   website: "globe",
   game: "triangle",
@@ -48,11 +49,11 @@ const PROJECT_TYPE_ICONS: Record<string, string> = {
   other: "file",
 };
 
-function ProjectCard({ project, index }: { project: any; index: number }) {
+function ProjectCard({ project, index }: { project: Project; index: number }) {
   const scale = useSharedValue(1);
   const anim = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
   const typeColor = PROJECT_TYPE_COLORS[project.type] ?? C.textSecondary;
-  const typeIcon = PROJECT_TYPE_ICONS[project.type] ?? "file";
+  const typeIcon: keyof typeof Feather.glyphMap = PROJECT_TYPE_ICONS[project.type] ?? "file";
 
   const handlePress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -68,7 +69,7 @@ function ProjectCard({ project, index }: { project: any; index: number }) {
         style={styles.projectCard}
       >
         <View style={[styles.projectIconBg, { backgroundColor: typeColor + "22" }]}>
-          <Feather name={typeIcon as any} size={20} color={typeColor} />
+          <Feather name={typeIcon} size={20} color={typeColor} />
         </View>
         <View style={styles.projectInfo}>
           <Text style={styles.projectName} numberOfLines={1}>{project.name}</Text>
@@ -84,16 +85,21 @@ function ProjectCard({ project, index }: { project: any; index: number }) {
   );
 }
 
-function CommunityCard({ post, index }: { post: any; index: number }) {
+function CommunityCard({ post, index }: { post: CommunityPost; index: number }) {
   const scale = useSharedValue(1);
   const anim = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+
+  const handlePress = () => {
+    Haptics.selectionAsync();
+    router.push({ pathname: "/community/[id]", params: { id: String(post.id) } });
+  };
 
   return (
     <Animated.View entering={FadeInRight.delay(index * 60).springify()} style={[anim, styles.communityCard]}>
       <Pressable
         onPressIn={() => { scale.value = withSpring(0.96); }}
         onPressOut={() => { scale.value = withSpring(1); }}
-        onPress={() => Haptics.selectionAsync()}
+        onPress={handlePress}
         style={styles.communityCardInner}
       >
         {post.thumbnailUrl ? (
@@ -190,7 +196,6 @@ export default function HomeScreen() {
                   <Ionicons name="sparkles" size={20} color={C.background} />
                 </View>
               </View>
-              <View style={styles.heroBannerBorder} />
             </LinearGradient>
           </Pressable>
         </Animated.View>
@@ -222,7 +227,7 @@ export default function HomeScreen() {
               <Text style={styles.emptySubText}>Tap to create your first</Text>
             </Pressable>
           ) : (
-            projects!.slice(0, 5).map((project, i) => (
+            (projects ?? []).slice(0, 5).map((project, i) => (
               <ProjectCard key={project.id} project={project} index={i} />
             ))
           )}
@@ -238,7 +243,7 @@ export default function HomeScreen() {
               </Pressable>
             </View>
             <FlatList
-              data={communityPosts!.slice(0, 8)}
+              data={(communityPosts ?? []).slice(0, 8)}
               keyExtractor={(item) => String(item.id)}
               renderItem={({ item, index }) => <CommunityCard post={item} index={index} />}
               horizontal
@@ -305,8 +310,6 @@ const styles = StyleSheet.create({
   heroBanner: {
     borderRadius: 20,
     padding: 20,
-    position: "relative",
-    overflow: "hidden",
     borderWidth: 1,
     borderColor: C.surfaceBorder,
   },
@@ -333,14 +336,6 @@ const styles = StyleSheet.create({
     backgroundColor: C.primary,
     alignItems: "center",
     justifyContent: "center",
-  },
-  heroBannerBorder: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 1,
-    backgroundColor: `${C.primary}33`,
   },
   section: {
     marginTop: 28,

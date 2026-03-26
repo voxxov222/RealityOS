@@ -73,7 +73,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             await AsyncStorage.removeItem(TOKEN_KEY);
           }
         }
-      } catch {}
+      } catch (err) {
+        console.error("[Auth] Failed to restore session:", err);
+      }
       setIsLoading(false);
     };
     init();
@@ -116,10 +118,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signOut = useCallback(async () => {
     try {
       await AsyncStorage.removeItem(TOKEN_KEY);
-      setToken(null);
-      tokenRef.current = null;
-      setUser(null);
-    } catch {}
+    } catch (err) {
+      console.error("[Auth] Failed to clear token from storage:", err);
+    }
+    setToken(null);
+    tokenRef.current = null;
+    setUser(null);
   }, []);
 
   return (

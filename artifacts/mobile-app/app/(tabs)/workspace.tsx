@@ -1,4 +1,4 @@
-import { Ionicons, Feather } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import { useLocalSearchParams } from "expo-router";
@@ -16,11 +16,13 @@ import {
 } from "react-native";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Animated, { FadeInDown, FadeInUp } from "react-native-reanimated";
+import Animated, { FadeInDown } from "react-native-reanimated";
 
 import { useAuth } from "@/context/auth";
+import { useVoiceInput } from "@/hooks/useVoiceInput";
 import { Colors } from "@/constants/colors";
 import { useListProjects, useCreateProject } from "@workspace/api-client-react";
+import type { Project } from "@workspace/api-client-react";
 
 const C = Colors.dark;
 
@@ -32,7 +34,7 @@ interface Message {
 
 let msgCounter = 0;
 function genId(): string {
-  msgCounter++;
+  msgCounter += 1;
   return `msg-${Date.now()}-${msgCounter}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
@@ -74,7 +76,7 @@ function ProjectPicker({
   onSelect,
   onCreate,
 }: {
-  projects: any[];
+  projects: Project[];
   selectedId: number | null;
   onSelect: (id: number | null) => void;
   onCreate: () => void;
@@ -82,7 +84,7 @@ function ProjectPicker({
   return (
     <View style={styles.projectPicker}>
       <FlatList
-        data={[{ id: null, name: "New Chat" }, ...projects]}
+        data={[{ id: null as number | null, name: "New Chat" }, ...projects]}
         keyExtractor={(item) => String(item.id ?? "new")}
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -124,17 +126,25 @@ function ProjectPicker({
   );
 }
 
+const SUGGESTIONS = [
+  "Build me a Snake game",
+  "Create a portfolio website",
+  "Make a todo app with dark theme",
+  "Create a 3D solar system",
+];
+
 export default function WorkspaceScreen() {
   const insets = useSafeAreaInsets();
   const { user, token, signIn } = useAuth();
   const params = useLocalSearchParams<{ projectId?: string }>();
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(
-    params.projectId ? Number(params.projectId) : null
+    params.projectId ? Number(params.projectId) : null,
   );
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [showTyping, setShowTyping] = useState(false);
+  const [voiceError, setVoiceError] = useState<string | null>(null);
   const inputRef = useRef<TextInput>(null);
   const { data: projects } = useListProjects();
   const createProject = useCreateProject();
@@ -142,20 +152,25 @@ export default function WorkspaceScreen() {
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
 
+  const { voiceState, startRecording, stopRecording } = useVoiceInput({
+    onTranscript: (text) => {
+      setInputText((prev) => (prev ? `${prev} ${text}` : text));
+      setVoiceError(null);
+    },
+    onError: (message) => {
+      setVoiceError(message);
+      setTimeout(() => setVoiceError(null), 3000);
+    },
+  });
+
   const handleSend = useCallback(async () => {
-    if (!inputText.trim() || isStreaming) return;
     const text = inputText.trim();
+    if (!text || isStreaming || !user) return;
+
     setInputText("");
-
-    if (!user) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-      return;
-    }
-
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     inputRef.current?.focus();
 
-    const currentMessages = [...messages];
     const userMsg: Message = { id: genId(), role: "user", content: text };
     setMessages((prev) => [...prev, userMsg]);
     setIsStreaming(true);
@@ -163,8 +178,8 @@ export default function WorkspaceScreen() {
 
     try {
       const domain = process.env.EXPO_PUBLIC_DOMAIN ?? "";
-      const body: Record<string, any> = { prompt: text };
-      if (selectedProjectId) body.projectId = selectedProjectId;
+      const body: { prompt: string; projectId?: number } = { prompt: text };
+      if (selectedProjectId !== null) body.projectId = selectedProjectId;
 
       const response = await fetch(`https://${domain}/api/agent/run`, {
         method: "POST",
@@ -176,10 +191,12 @@ export default function WorkspaceScreen() {
         body: JSON.stringify(body),
       });
 
-      if (!response.ok) throw new Error("Agent request failed");
+      if (!response.ok) {
+        throw new Error(`Agent responded with ${response.status}`);
+      }
 
       const reader = response.body?.getReader();
-      if (!reader) throw new Error("No response body");
+      if (!reader) throw new Error("No response body reader");
 
       const decoder = new TextDecoder();
       let fullContent = "";
@@ -191,14 +208,14 @@ export default function WorkspaceScreen() {
         if (done) break;
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
+        buffer = lines.pop() ?? "";
 
         for (const line of lines) {
           if (!line.startsWith("data: ")) continue;
           const data = line.slice(6);
           if (data === "[DONE]") continue;
           try {
-            const parsed = JSON.parse(data);
+            const parsed = JSON.parse(data) as { content?: string; chunk?: string };
             const chunk = parsed.content ?? parsed.chunk ?? "";
             if (chunk) {
               fullContent += chunk;
@@ -212,32 +229,45 @@ export default function WorkspaceScreen() {
               } else {
                 setMessages((prev) => {
                   const updated = [...prev];
-                  updated[updated.length - 1] = {
-                    ...updated[updated.length - 1],
-                    content: fullContent,
-                  };
+                  const last = updated[updated.length - 1];
+                  if (last) {
+                    updated[updated.length - 1] = { ...last, content: fullContent };
+                  }
                   return updated;
                 });
               }
             }
-          } catch {}
+          } catch {
+            // Skip malformed SSE data frames
+          }
         }
       }
-    } catch {
+
+      if (!assistantAdded) {
+        setShowTyping(false);
+        setMessages((prev) => [
+          ...prev,
+          { id: genId(), role: "assistant", content: fullContent || "Done! Let me know what to refine." },
+        ]);
+      }
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error ? err.message : "Something went wrong";
+      console.error("[Workspace] Agent error:", errorMessage);
       setShowTyping(false);
       setMessages((prev) => [
         ...prev,
         {
           id: genId(),
           role: "assistant",
-          content: "Something went wrong. Please try again.",
+          content: "Something went wrong. Please check your connection and try again.",
         },
       ]);
     } finally {
       setIsStreaming(false);
       setShowTyping(false);
     }
-  }, [inputText, isStreaming, messages, user, token, selectedProjectId]);
+  }, [inputText, isStreaming, user, token, selectedProjectId]);
 
   const handleNewProject = useCallback(async () => {
     if (!user) return;
@@ -248,13 +278,18 @@ export default function WorkspaceScreen() {
       setSelectedProjectId(p.id);
       setMessages([]);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch {}
+    } catch (err) {
+      console.error("[Workspace] Failed to create project:", err);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    }
   }, [user, createProject]);
 
   const reversed = [...messages].reverse();
+  const isRecording = voiceState === "recording";
+  const isProcessing = voiceState === "processing";
 
   return (
-    <View style={[styles.container]}>
+    <View style={styles.container}>
       {/* Header */}
       <View style={[styles.header, { paddingTop: topPad + 12 }]}>
         <View style={styles.headerLeft}>
@@ -312,12 +347,7 @@ export default function WorkspaceScreen() {
               </View>
               <Text style={styles.emptyChatTitle}>What will you build?</Text>
               <View style={styles.suggestionGrid}>
-                {[
-                  "Build me a Snake game",
-                  "Create a portfolio website",
-                  "Make a todo app with dark theme",
-                  "Create a 3D solar system",
-                ].map((s) => (
+                {SUGGESTIONS.map((s) => (
                   <Pressable
                     key={s}
                     onPress={() => {
@@ -345,8 +375,22 @@ export default function WorkspaceScreen() {
             />
           )}
 
+          {/* Voice error toast */}
+          {voiceError ? (
+            <View style={styles.voiceErrorToast}>
+              <Ionicons name="alert-circle" size={16} color={C.error} />
+              <Text style={styles.voiceErrorText}>{voiceError}</Text>
+            </View>
+          ) : null}
+
           {/* Input */}
           <View style={[styles.inputContainer, { paddingBottom: bottomPad + 8 }]}>
+            {isRecording && (
+              <View style={styles.recordingBanner}>
+                <View style={styles.recordingDot} />
+                <Text style={styles.recordingText}>Listening... tap mic to stop</Text>
+              </View>
+            )}
             <View style={styles.inputRow}>
               <TextInput
                 ref={inputRef}
@@ -359,16 +403,44 @@ export default function WorkspaceScreen() {
                 maxLength={2000}
                 blurOnSubmit={false}
                 returnKeyType="default"
+                editable={!isRecording}
               />
+              {/* Voice button */}
+              <Pressable
+                onPress={() => {
+                  if (isRecording) {
+                    stopRecording();
+                  } else {
+                    startRecording();
+                  }
+                }}
+                disabled={isStreaming || isProcessing}
+                style={[
+                  styles.voiceBtn,
+                  isRecording && styles.voiceBtnActive,
+                  (isStreaming || isProcessing) && styles.voiceBtnDisabled,
+                ]}
+              >
+                {isProcessing ? (
+                  <ActivityIndicator size="small" color={C.primary} />
+                ) : (
+                  <Ionicons
+                    name={isRecording ? "stop" : "mic"}
+                    size={20}
+                    color={isRecording ? C.background : C.primary}
+                  />
+                )}
+              </Pressable>
+              {/* Send button */}
               <Pressable
                 onPress={() => {
                   handleSend();
                   inputRef.current?.focus();
                 }}
-                disabled={!inputText.trim() || isStreaming}
+                disabled={!inputText.trim() || isStreaming || isRecording}
                 style={[
                   styles.sendBtn,
-                  (!inputText.trim() || isStreaming) && styles.sendBtnDisabled,
+                  (!inputText.trim() || isStreaming || isRecording) && styles.sendBtnDisabled,
                 ]}
               >
                 {isStreaming ? (
@@ -583,6 +655,43 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: C.textSecondary,
   },
+  voiceErrorToast: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: C.error + "22",
+    borderWidth: 1,
+    borderColor: C.error + "55",
+    borderRadius: 10,
+    marginHorizontal: 16,
+    marginBottom: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  voiceErrorText: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 13,
+    color: C.error,
+    flex: 1,
+  },
+  recordingBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    justifyContent: "center",
+    marginBottom: 8,
+  },
+  recordingDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: C.error,
+  },
+  recordingText: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 13,
+    color: C.error,
+  },
   inputContainer: {
     paddingHorizontal: 16,
     paddingTop: 8,
@@ -593,7 +702,7 @@ const styles = StyleSheet.create({
   inputRow: {
     flexDirection: "row",
     alignItems: "flex-end",
-    gap: 10,
+    gap: 8,
   },
   input: {
     flex: 1,
@@ -608,6 +717,23 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: C.cardBorder,
     maxHeight: 120,
+  },
+  voiceBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: C.surface,
+    borderWidth: 1,
+    borderColor: C.primary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  voiceBtnActive: {
+    backgroundColor: C.error,
+    borderColor: C.error,
+  },
+  voiceBtnDisabled: {
+    opacity: 0.4,
   },
   sendBtn: {
     width: 44,
