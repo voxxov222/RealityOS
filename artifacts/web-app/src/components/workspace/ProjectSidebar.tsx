@@ -52,15 +52,20 @@ export function ProjectSidebar({ onNavigate }: ProjectSidebarProps) {
     }
   };
 
-  const handleRename = async (id: number) => {
-    if (!editName.trim()) return;
+  const handleRename = async (id: number, originalName: string) => {
+    const trimmed = editName.trim();
+    if (!trimmed || trimmed === originalName) {
+      setEditingId(null);
+      return;
+    }
     try {
-      await updateProject.mutateAsync({ id, data: { name: editName } });
+      await updateProject.mutateAsync({ id, data: { name: trimmed } });
       toast({ title: "Project renamed" });
       setEditingId(null);
       refetch();
     } catch (e) {
       toast({ title: "Failed to rename project", variant: "destructive" });
+      setEditingId(null);
     }
   };
 
@@ -141,10 +146,10 @@ export function ProjectSidebar({ onNavigate }: ProjectSidebarProps) {
                       className="h-8 bg-black/50 border-white/20 text-white text-sm"
                       autoFocus
                       onKeyDown={(e) => {
-                        if (e.key === 'Enter') handleRename(project.id);
+                        if (e.key === 'Enter') handleRename(project.id, project.name);
                         if (e.key === 'Escape') setEditingId(null);
                       }}
-                      onBlur={() => handleRename(project.id)}
+                      onBlur={() => handleRename(project.id, project.name)}
                     />
                   </div>
                 ) : (
