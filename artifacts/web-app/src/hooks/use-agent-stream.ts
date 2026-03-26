@@ -1,5 +1,10 @@
 import { useState, useCallback } from "react";
-import type { RunAgentBody } from "@workspace/api-client-react/src/generated/api.schemas";
+
+interface RunAgentPayload {
+  prompt: string;
+  projectId?: number;
+  context?: string;
+}
 
 export function useAgentStream() {
   const [isLoading, setIsLoading] = useState(false);
@@ -8,12 +13,14 @@ export function useAgentStream() {
   const [sessionId, setSessionId] = useState<number | null>(null);
   const [isDone, setIsDone] = useState(false);
 
-  const runAgent = useCallback(async (payload: RunAgentBody) => {
+  const runAgent = useCallback(async (payload: RunAgentPayload): Promise<string> => {
     setIsLoading(true);
     setContent("");
     setError(null);
     setIsDone(false);
     setSessionId(null);
+
+    let finalContent = "";
 
     try {
       const res = await fetch("/api/agent/run", {
@@ -35,23 +42,25 @@ export function useAgentStream() {
       while (!done) {
         const { value, done: readerDone } = await reader.read();
         done = readerDone;
-        
+
         if (value) {
           buffer += decoder.decode(value, { stream: true });
           const lines = buffer.split("\n");
-          buffer = lines.pop() || ""; // keep the last potentially incomplete line
+          buffer = lines.pop() || "";
 
           for (const line of lines) {
             const trimmedLine = line.trim();
             if (trimmedLine.startsWith("data: ")) {
               try {
                 const data = JSON.parse(trimmedLine.slice(6));
-                
+
                 if (data.sessionId) setSessionId(data.sessionId);
-                if (data.content) setContent((prev) => prev + data.content);
+                if (data.content) {
+                  finalContent += data.content;
+                  setContent((prev) => prev + data.content);
+                }
                 if (data.error) setError(data.error);
                 if (data.done) setIsDone(true);
-                
               } catch (e) {
                 console.error("Error parsing SSE chunk:", e);
               }
@@ -66,7 +75,16 @@ export function useAgentStream() {
       setIsLoading(false);
       setIsDone(true);
     }
+
+    return finalContent;
   }, []);
 
-  return { runAgent, content, isLoading, error, sessionId, isDone };
+  const reset = useCallback(() => {
+    setContent("");
+    setError(null);
+    setIsDone(false);
+    setSessionId(null);
+  }, []);
+
+  return { runAgent, content, isLoading, error, sessionId, isDone, reset };
 }

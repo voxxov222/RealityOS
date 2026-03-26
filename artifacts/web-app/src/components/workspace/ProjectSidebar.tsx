@@ -21,7 +21,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 
-export function ProjectSidebar() {
+interface ProjectSidebarProps {
+  onNavigate?: () => void;
+}
+
+export function ProjectSidebar({ onNavigate }: ProjectSidebarProps) {
   const [location] = useLocation();
   const { data: projects, isLoading, refetch } = useListProjects();
   const createProject = useCreateProject();
@@ -81,7 +85,7 @@ export function ProjectSidebar() {
   };
 
   return (
-    <div className="w-64 h-[calc(100vh-65px)] flex-shrink-0 glass-panel border-r border-t-0 border-b-0 border-l-0 border-white/10 flex flex-col hidden md:flex">
+    <div className="w-64 h-[calc(100vh-65px)] flex-shrink-0 glass-panel border-r border-white/10 flex flex-col">
       <div className="p-4 border-b border-white/5">
         <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
           <DialogTrigger asChild>
@@ -144,7 +148,7 @@ export function ProjectSidebar() {
                     />
                   </div>
                 ) : (
-                  <Link href={`/workspace/${project.id}`} className={`flex-1 flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all duration-200 ${isActive ? 'bg-primary/15 text-white font-medium shadow-[inset_2px_0_0_0_hsl(var(--primary))]' : 'text-muted-foreground hover:bg-white/5 hover:text-white'}`}>
+                  <Link href={`/workspace/${project.id}`} onClick={() => onNavigate?.()} className={`flex-1 flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all duration-200 ${isActive ? 'bg-primary/15 text-white font-medium shadow-[inset_2px_0_0_0_hsl(var(--primary))]' : 'text-muted-foreground hover:bg-white/5 hover:text-white'}`}>
                     {getProjectIcon(project.type)}
                     <span className="truncate">{project.name}</span>
                   </Link>

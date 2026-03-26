@@ -1,3 +1,4 @@
+import { ReactNode } from "react";
 import { Link } from "wouter";
 import { useGetCurrentAuthUser } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
@@ -12,13 +13,18 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
-export function Navbar() {
+interface NavbarProps {
+  mobileMenuSlot?: ReactNode;
+}
+
+export function Navbar({ mobileMenuSlot }: NavbarProps) {
   const { data: authEnvelope, isLoading } = useGetCurrentAuthUser();
   const user = authEnvelope?.user;
 
   return (
-    <nav className="sticky top-0 z-50 w-full glass-panel border-b-white/10 px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
-      <div className="flex items-center gap-8">
+    <nav className="sticky top-0 z-50 w-full glass-panel border-b border-white/10 px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
+      <div className="flex items-center gap-3 md:gap-8">
+        {mobileMenuSlot}
         <Link href="/" className="flex items-center gap-3 group">
           <div className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-primary to-secondary shadow-lg shadow-primary/20 group-hover:shadow-primary/40 transition-all duration-300">
             <Sparkles className="h-5 w-5 text-white" />
@@ -55,7 +61,7 @@ export function Navbar() {
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-56 glass-panel" align="end" forceMount>
+            <DropdownMenuContent className="w-56 glass-panel border-white/10" align="end" forceMount>
               <DropdownMenuLabel className="font-normal">
                 <div className="flex flex-col space-y-1">
                   <p className="text-sm font-medium leading-none text-white">
@@ -74,15 +80,18 @@ export function Navbar() {
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator className="bg-white/10" />
-              <DropdownMenuItem className="cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10" onClick={() => window.location.href = "/api/logout"}>
+              <DropdownMenuItem
+                className="cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10"
+                onClick={() => { window.location.href = "/api/logout"; }}
+              >
                 <LogOut className="mr-2 h-4 w-4" />
                 Sign out
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         ) : (
-          <Button 
-            onClick={() => window.location.href = "/api/login"}
+          <Button
+            onClick={() => { window.location.href = "/api/login"; }}
             className="rounded-full bg-white text-black hover:bg-gray-200 font-semibold px-6 shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:shadow-[0_0_25px_rgba(255,255,255,0.5)] transition-all"
           >
             Sign In
