@@ -28,7 +28,25 @@ app.use(
     },
   }),
 );
-app.use(cors({ credentials: true, origin: true }));
+const isDev = process.env.NODE_ENV !== "production";
+app.use(
+  cors({
+    credentials: true,
+    origin: isDev
+      ? true
+      : (origin, cb) => {
+          if (!origin) return cb(null, true);
+          const allowed =
+            /\.replit\.app$/.test(origin) ||
+            /\.replit\.dev$/.test(origin) ||
+            (process.env.ALLOWED_ORIGINS ?? "")
+              .split(",")
+              .map((o) => o.trim())
+              .includes(origin);
+          cb(allowed ? null : new Error("CORS policy violation"), allowed);
+        },
+  }),
+);
 app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
