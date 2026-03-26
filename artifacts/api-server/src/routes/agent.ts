@@ -1,5 +1,7 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { openai } from "@workspace/integrations-openai-ai-server";
+import { db, agentSessionsTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
 import { z } from "zod";
 
 const router: IRouter = Router();
@@ -34,11 +36,22 @@ router.post("/agent/run", async (req: Request, res: Response) => {
     return;
   }
 
-  const { prompt, context } = parsed.data;
+  const { prompt, projectId, context } = parsed.data;
+
+  const [agentSession] = await db
+    .insert(agentSessionsTable)
+    .values({
+      userId: req.user.id,
+      projectId: projectId ?? null,
+      prompt,
+      status: "running",
+    })
+    .returning();
 
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
+  res.write(`data: ${JSON.stringify({ sessionId: agentSession.id })}\n\n`);
 
   const messages: { role: "system" | "user"; content: string }[] = [
     { role: "system", content: SYSTEM_PROMPT },
@@ -53,6 +66,8 @@ router.post("/agent/run", async (req: Request, res: Response) => {
     messages.push({ role: "user", content: prompt });
   }
 
+  let fullContent = "";
+
   try {
     const stream = await openai.chat.completions.create({
       model: "gpt-5.2",
@@ -64,14 +79,30 @@ router.post("/agent/run", async (req: Request, res: Response) => {
     for await (const chunk of stream) {
       const content = chunk.choices[0]?.delta?.content;
       if (content) {
+        fullContent += content;
         res.write(`data: ${JSON.stringify({ content })}\n\n`);
       }
     }
 
-    res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+    await db
+      .update(agentSessionsTable)
+      .set({ status: "completed", result: { content: fullContent }, updatedAt: new Date() })
+      .where(eq(agentSessionsTable.id, agentSession.id));
+
+    res.write(`data: ${JSON.stringify({ done: true, sessionId: agentSession.id })}\n\n`);
     res.end();
   } catch (err) {
     req.log.error({ err }, "Agent run error");
+
+    await db
+      .update(agentSessionsTable)
+      .set({
+        status: "failed",
+        error: err instanceof Error ? err.message : "Unknown error",
+        updatedAt: new Date(),
+      })
+      .where(eq(agentSessionsTable.id, agentSession.id));
+
     res.write(`data: ${JSON.stringify({ error: "Agent failed to respond" })}\n\n`);
     res.end();
   }

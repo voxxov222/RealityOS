@@ -50,6 +50,10 @@ router.get("/openai/conversations/:id", async (req: Request, res: Response) => {
     return;
   }
   const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    res.status(400).json({ error: "Invalid id" });
+    return;
+  }
   const [conv] = await db
     .select()
     .from(conversations)
@@ -72,6 +76,10 @@ router.delete("/openai/conversations/:id", async (req: Request, res: Response) =
     return;
   }
   const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    res.status(400).json({ error: "Invalid id" });
+    return;
+  }
   const [conv] = await db
     .select()
     .from(conversations)
@@ -90,6 +98,10 @@ router.get("/openai/conversations/:id/messages", async (req: Request, res: Respo
     return;
   }
   const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    res.status(400).json({ error: "Invalid id" });
+    return;
+  }
   const [conv] = await db
     .select()
     .from(conversations)
@@ -112,6 +124,10 @@ router.post("/openai/conversations/:id/messages", async (req: Request, res: Resp
     return;
   }
   const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    res.status(400).json({ error: "Invalid id" });
+    return;
+  }
   const parsed = sendMessageSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Invalid request body" });

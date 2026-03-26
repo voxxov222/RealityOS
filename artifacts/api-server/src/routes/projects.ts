@@ -54,6 +54,10 @@ router.get("/projects/:id", async (req: Request, res: Response) => {
     return;
   }
   const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    res.status(400).json({ error: "Invalid id" });
+    return;
+  }
   const [project] = await db
     .select()
     .from(projectsTable)
@@ -71,6 +75,10 @@ router.put("/projects/:id", async (req: Request, res: Response) => {
     return;
   }
   const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    res.status(400).json({ error: "Invalid id" });
+    return;
+  }
   const parsed = updateProjectSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Invalid request body" });
@@ -98,6 +106,10 @@ router.delete("/projects/:id", async (req: Request, res: Response) => {
     return;
   }
   const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    res.status(400).json({ error: "Invalid id" });
+    return;
+  }
   const [existing] = await db
     .select()
     .from(projectsTable)

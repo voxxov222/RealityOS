@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { db, communityPostsTable } from "@workspace/db";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, sql } from "drizzle-orm";
 import { z } from "zod";
 
 const router: IRouter = Router();
@@ -18,18 +18,18 @@ router.get("/community", async (req: Request, res: Response) => {
   const offset = Number(req.query.offset) || 0;
   const tag = req.query.tag as string | undefined;
 
-  const posts = await db
+  const query = db
     .select()
     .from(communityPostsTable)
     .orderBy(desc(communityPostsTable.createdAt))
     .limit(limit)
     .offset(offset);
 
-  const filtered = tag
-    ? posts.filter((p) => p.tags?.includes(tag))
-    : posts;
+  const posts = tag
+    ? await query.where(sql`${communityPostsTable.tags} @> ARRAY[${tag}]::text[]`)
+    : await query;
 
-  res.json(filtered);
+  res.json(posts);
 });
 
 router.post("/community", async (req: Request, res: Response) => {
@@ -60,6 +60,10 @@ router.post("/community", async (req: Request, res: Response) => {
 
 router.get("/community/:id", async (req: Request, res: Response) => {
   const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    res.status(400).json({ error: "Invalid id" });
+    return;
+  }
   const [post] = await db
     .select()
     .from(communityPostsTable)
