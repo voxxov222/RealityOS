@@ -1,26 +1,37 @@
 import { useEffect } from "react";
-import { useLocation } from "wouter";
 import { useGetCurrentAuthUser } from "@workspace/api-client-react";
 import { Loader2, Sparkles, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default function SignIn() {
-  const [location] = useLocation();
   const { data: auth, isLoading } = useGetCurrentAuthUser();
 
   const params = new URLSearchParams(
     typeof window !== "undefined" ? window.location.search : ""
   );
-  const returnTo = params.get("returnTo") || "/workspace";
+
+  const rawReturnTo = params.get("returnTo") || "/workspace";
+  const safeReturnTo = (() => {
+    if (
+      rawReturnTo.startsWith("//") ||
+      rawReturnTo.startsWith("http://") ||
+      rawReturnTo.startsWith("https://") ||
+      rawReturnTo.startsWith("javascript:") ||
+      !rawReturnTo.startsWith("/")
+    ) {
+      return "/workspace";
+    }
+    return rawReturnTo;
+  })();
 
   useEffect(() => {
     if (!isLoading && auth?.user) {
-      window.location.href = returnTo;
+      window.location.href = safeReturnTo;
     }
-  }, [auth, isLoading, returnTo]);
+  }, [auth, isLoading, safeReturnTo]);
 
   const handleSignIn = () => {
-    const encodedReturn = encodeURIComponent(returnTo);
+    const encodedReturn = encodeURIComponent(safeReturnTo);
     window.location.href = `/api/login?returnTo=${encodedReturn}`;
   };
 
